@@ -1,0 +1,74 @@
+--------COLUMN,DATATYPE OF TABLE-------------
+SELECT COLUMN_NAME, DATA_TYPE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'df_employee';
+
+----------to find long running queries-------------
+SELECT
+    r.session_id,
+    s.login_name,
+    r.start_time,
+    r.status,
+    r.command,
+    r.database_id,
+    r.total_elapsed_time,
+    r.wait_type,
+    r.wait_time,
+    r.wait_resource,
+    SUBSTRING(st.text, (r.statement_start_offset/2)+1,
+           ((CASE r.statement_end_offset
+             WHEN -1 THEN DATALENGTH(st.text)
+             ELSE r.statement_end_offset
+             END - r.statement_start_offset)/2) + 1) AS statement_text
+FROM
+    sys.dm_exec_requests r
+JOIN
+    sys.dm_exec_sessions s ON r.session_id = s.session_id
+CROSS APPLY
+    sys.dm_exec_sql_text(r.sql_handle) st
+WHERE
+    r.status IN ('running', 'suspended') -- Include only running or suspended queries
+    AND r.total_elapsed_time > 60 -- Identify queries running for more than 60 seconds
+ORDER BY
+    r.total_elapsed_time DESC; -- Order by elapsed time to identify the longest-running queries first
+----------to find long running queries over-------------
+--running current sessions infirmation on sql server
+select * from sys.dm_exec_requests
+-----formatting tbales values total ----
+
+/******--1st and after space and newword should be upper and others are lower case-------******/
+DECLARE @String NVARCHAR(MAX) = 'Distrito federal';
+SELECT UPPER(LEFT(@String, 1)) + LOWER(SUBSTRING(@String, 2, CHARINDEX(' ', @String + ' ', 2) - 2)) +
+       UPPER(SUBSTRING(@String, CHARINDEX(' ', @String + ' ', 2) + 1, 1)) +
+       LOWER(SUBSTRING(@String, CHARINDEX(' ', @String + ' ', 2) + 2, LEN(@String)));
+--------------
+--PascalCaseCompanyState
+SELECT 
+    UPPER(SUBSTRING(company_state, 1, 1)) + LOWER(SUBSTRING(company_state, 2, LEN(company_state))) AS PascalCaseCompanyState
+FROM 
+    df_employee;
+--CamelCase format for CompanyState 
+SELECT 
+    LOWER(SUBSTRING(company_state, 1, 1)) + UPPER(SUBSTRING(company_state, 2, LEN(company_state))) AS CamelCaseCompanyState
+FROM 
+    df_employee;
+--ProperCaseCompanyState
+SELECT 
+    UPPER(SUBSTRING(company_state, 1, 1)) + LOWER(SUBSTRING(company_state, 2, LEN(company_state))) AS ProperCaseCompanyState
+FROM 
+    df_employee;
+
+---for all the table format
+DECLARE @TableName NVARCHAR(128) = 'df_employee'; -- Specify your table name here
+DECLARE @SchemaName NVARCHAR(128) = 'employee_salaries_project'; -- Specify your schema name here
+DECLARE @SQL NVARCHAR(MAX) = '';
+SELECT @SQL = @SQL + 
+    'EXEC sp_rename ''' + QUOTENAME(@SchemaName) + '.' + QUOTENAME(@TableName) + '.' + QUOTENAME(name) + ''', ''' + 
+    REPLACE(UPPER(LEFT(name, 1)) + LOWER(SUBSTRING(name, 2, LEN(name))), '_', '') + ''', ''COLUMN'';' + CHAR(13)
+FROM sys.columns 
+WHERE object_id = OBJECT_ID(@SchemaName + '.' + @TableName);
+
+-- Execute the generated SQL statements
+EXEC sp_executesql @SQL;
+
+SELECT * FROM df_employee;
